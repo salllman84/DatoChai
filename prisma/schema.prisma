@@ -1,8 +1,8 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// C:\Cursor\datochai\prisma\schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -36,13 +36,13 @@ model User {
   email           String     @unique
   password        String     // Stores the bcrypt hashed password
   role            Role       @default(VIEWER)
-  assignedPillars String[]
+  assignedPillars String
   is2FAEnabled    Boolean    @default(false)
   totpSecret      String?
   image           String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
-  auditLogs       AuditLog[]
+  auditLogs       AuditLog
 }
 
 model LotteryCategory {
@@ -51,7 +51,7 @@ model LotteryCategory {
   slug            String       @unique
   drawSchedule    Json
   isActive        Boolean      @default(true)
-  predictions     Prediction[]
+  predictions     Prediction
   pillarPage      PillarPage?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -62,11 +62,11 @@ model Prediction {
   lotteryCategory   LotteryCategory @relation(fields: [lotteryCategoryId], references: [id], onDelete: Cascade)
   lotteryCategoryId String
   drawDate          DateTime
-  mainNumbers       String[]
-  hotNumbers        String[]
-  coldNumbers       String[]
-  overdueNumbers    String[]
-  historyLogs       Json            @default("[]")
+  mainNumbers       String
+  hotNumbers        String
+  coldNumbers       String
+  overdueNumbers    String
+  historyLogs       Json            @default("")
   scientificNote    String?
   status            PostStatus      @default(DRAFT)
   publishedAt       DateTime?
@@ -93,7 +93,7 @@ model PillarPage {
   id                String          @id @default(cuid())
   lotteryCategory   LotteryCategory @relation(fields: [lotteryCategoryId], references: [id], onDelete: Cascade)
   lotteryCategoryId String          @unique
-  layoutBlocks      Json            @default("[]")
+  layoutBlocks      Json            @default("")
   seo               PillarPageSeo?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -112,6 +112,52 @@ model PillarPageSeo {
   updatedAt      DateTime   @updatedAt
 }
 
+// --- NEW PHASE 3 MODELS START ---
+model Category {
+  id          String              @id @default(cuid())
+  name        String              @unique @db.VarChar(100)
+  posts       CategoriesOnPosts
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  
+  @@map("categories")
+}
+
+model Tag {
+  id          String        @id @default(cuid())
+  name        String        @unique @db.VarChar(100)
+  posts       TagsOnPosts
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("tags")
+}
+
+model CategoriesOnPosts {
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId      String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId  String
+  assignedAt  DateTime @default(now())
+
+  @@id([postId, categoryId])
+  @@index([categoryId])
+  @@map("categories_on_posts")
+}
+
+model TagsOnPosts {
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId      String
+  tag         Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId       String
+  assignedAt  DateTime @default(now())
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("tags_on_posts")
+}
+// --- NEW PHASE 3 MODELS END ---
+
 model Post {
   id            String      @id @default(cuid())
   title         String
@@ -122,8 +168,16 @@ model Post {
   status        PostStatus  @default(DRAFT)
   publishedAt   DateTime?
   seo           PostSeo?
+  
+  categories    CategoriesOnPosts
+  tags          TagsOnPosts
+
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  // Composite index to speed up the default admin view
+  @@index([status, publishedAt])
+  @@map("posts")
 }
 
 model PostSeo {
@@ -137,6 +191,8 @@ model PostSeo {
   seoScore       Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  @@index([seoScore])
+  @@map("post_seo")
 }
 
 model Expert {
@@ -145,8 +201,8 @@ model Expert {
   slug           String   @unique
   bio            String
   avatarUrl      String?
-  credentials    String[]
-  authorityLinks String[]
+  credentials    String
+  authorityLinks String
   isApproved     Boolean  @default(false)
   isVisible      Boolean  @default(false)
   createdAt      DateTime @default(now())
